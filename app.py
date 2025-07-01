@@ -154,7 +154,9 @@ def load_default_data():
             
             # Check if the data is in the expected format (rows with Ticker and Description columns)
             if 'Ticker' in desc_df.columns and 'Description' in desc_df.columns:
-                descriptions = dict(zip(desc_df['Ticker'], desc_df['Description']))
+                # Filter out NaN values properly
+                descriptions = {k: v for k, v in dict(zip(desc_df['Ticker'], desc_df['Description'])).items() 
+                              if pd.notna(k) and pd.notna(v) and str(k).strip() and str(v).strip()}
             else:
                 # The data appears to be transposed - tickers are in first row, descriptions in second row
                 # Transpose the dataframe so tickers become column headers
@@ -359,6 +361,10 @@ def main():
         else:
             uploaded_file = st.sidebar.file_uploader("Upload CSV file with asset data", type=['csv'])
         
+        # Optional description file upload
+        st.sidebar.markdown("**Optional: Upload description file**")
+        description_file = st.sidebar.file_uploader("Upload description file (CSV with Ticker and Description columns)", type=['csv'], key="desc_file")
+        
         # CSV specific parameters
         csv_params = {}
         if file_type == "CSV":
@@ -412,6 +418,37 @@ def main():
         
         if data is None:
             return
+        
+        # Load descriptions from uploaded file if provided
+        if description_file is not None:
+            try:
+                desc_df = pd.read_csv(description_file, sep=';')
+                
+                # Check if the data is in the expected format (rows with Ticker and Description columns)
+                if 'Ticker' in desc_df.columns and 'Description' in desc_df.columns:
+                    # Filter out NaN values properly
+                    descriptions = {k: v for k, v in dict(zip(desc_df['Ticker'], desc_df['Description'])).items() 
+                                  if pd.notna(k) and pd.notna(v) and str(k).strip() and str(v).strip()}
+                else:
+                    # The data appears to be transposed - tickers are in first row, descriptions in second row
+                    # Transpose the dataframe so tickers become column headers
+                    desc_df_transposed = desc_df.T
+                    
+                    # If there are at least 2 rows, use first row as tickers and second as descriptions
+                    if len(desc_df_transposed) >= 2:
+                        tickers = desc_df_transposed.iloc[0].values  # First row contains tickers
+                        descriptions_list = desc_df_transposed.iloc[1].values  # Second row contains descriptions
+                        
+                        # Create the mapping, filtering out empty values
+                        descriptions = {}
+                        for ticker, desc in zip(tickers, descriptions_list):
+                            if pd.notna(ticker) and pd.notna(desc) and str(ticker).strip() and str(desc).strip():
+                                descriptions[str(ticker).strip()] = str(desc).strip()
+                
+                st.sidebar.success(f"✅ Loaded {len(descriptions)} asset descriptions")
+            except Exception as e:
+                st.sidebar.error(f"❌ Error loading description file: {str(e)}")
+                descriptions = {}
     
     # Date Range Selection
     st.sidebar.subheader("📅 Date Range")
@@ -516,7 +553,7 @@ def main():
         asset_description = None
         
         # Direct match first
-        if selected_asset in descriptions and descriptions[selected_asset]:
+        if selected_asset in descriptions and descriptions[selected_asset] and not pd.isna(descriptions[selected_asset]):
             asset_description = descriptions[selected_asset]
         else:
             # Try partial matching for common patterns
@@ -538,19 +575,21 @@ def main():
             st.markdown("**Asset Information:**")
             asset_info = f"Asset: **{selected_asset}**\n\n"
             
-            # Try to provide basic info based on asset name patterns
-            if 'curncy' in selected_asset.lower():
+            # Try to provide basic info based on asset name patterns (ordered by specificity)
+            if any(x in selected_asset.lower() for x in ['h15t', 'usyc', 'ct']):
+                asset_info += "🏛️ **Type:** Government bond or treasury security"
+            elif 'curncy' in selected_asset.lower():
                 asset_info += "📈 **Type:** Currency pair or foreign exchange rate"
-            elif 'index' in selected_asset.lower():
-                asset_info += "📊 **Type:** Market index or equity benchmark"
             elif 'comdty' in selected_asset.lower():
                 asset_info += "🏗️ **Type:** Commodity futures contract"
             elif 'govt' in selected_asset.lower():
                 asset_info += "🏛️ **Type:** Government bond or treasury security"
             elif any(x in selected_asset.lower() for x in ['cds', 'cdx', 'itrx']):
                 asset_info += "💳 **Type:** Credit Default Swap"
-            elif any(x in selected_asset.lower() for x in ['vix', 'vdax', 'move']):
+            elif any(x in selected_asset.lower() for x in ['vix', 'vdax', 'move', 'v2x', 'v1x']):
                 asset_info += "📈 **Type:** Volatility index"
+            elif 'index' in selected_asset.lower():
+                asset_info += "📊 **Type:** Market index or equity benchmark"
             else:
                 asset_info += "📋 **Type:** Financial instrument"
             
