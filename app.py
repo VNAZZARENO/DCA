@@ -674,7 +674,7 @@ def main():
             # Fallback if logo not found
             st.markdown('<h1 class="main-header">💰 DCA Investment Simulator</h1>', unsafe_allow_html=True)
     
-    st.markdown("### Professional Dollar Cost Averaging Analysis Tool")
+    st.markdown("### PERGAM TOOL for Dollar Cost Average vs Benchmark vs Lump Sum")
     
     # Sidebar with small logo
     try:
