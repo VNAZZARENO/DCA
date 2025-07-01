@@ -277,9 +277,6 @@ def create_benchmark_series(dates, benchmark_type, benchmark_value, benchmark_da
         
         return benchmark_prices
     
-    elif benchmark_type == "Money Market Fund" and benchmark_data is not None:
-        return benchmark_data
-    
     elif benchmark_type == "Other Index" and benchmark_data is not None:
         return benchmark_data
     
@@ -295,34 +292,128 @@ def create_benchmark_series(dates, benchmark_type, benchmark_value, benchmark_da
         
         return benchmark_prices
 
+def get_hardcoded_descriptions():
+    """Hardcoded asset descriptions as fallback"""
+    return {
+        'PERGLFI FP Equity': 'Pergam Global Fund is a SICAV incorporated in France. The Fund\'s objective is to generate capital gains over the long term. The Fund invests in a diversified portfolio of equity securities, fixed-income instruments, UCITS/AIFs and money market instruments.',
+        'H15T3M Index': 'US Treasury Yield Curve Rate T Note Constant Maturity 3 Month',
+        'H15T1Y Index': 'US Treasury Yield Curve Rate T Note Constant Maturity 1Y',
+        'H15T5Y Index': 'US Treasury Yield Curve Rate T Note Constant Maturity 5Y',
+        'H15T10Y Index': 'US Treasury Yield Curve Rate T Note Constant Maturity 10Y',
+        'ESES Index': 'S&P500 MINI SPRD M5-U5',
+        'OATA Comdty': 'French Gov Active Contract',
+        'VGA Index': 'EURO STOXX 50 Active Contract',
+        'EURUSD Curncy': 'Euro/US Dollar Exchange Rate',
+        'NZDUSD Curncy': 'New Zealand Dollar/US Dollar Exchange Rate',
+        'AUDUSD Curncy': 'Australian Dollar/US Dollar Exchange Rate',
+        'EURGBP Curncy': 'Euro/British Pound Exchange Rate',
+        'CHFUSD Curncy': 'Swiss Franc/US Dollar Exchange Rate',
+        'CHFEUR Curncy': 'Swiss Franc/Euro Exchange Rate',
+        'USDJPY Curncy': 'US Dollar/Japanese Yen Exchange Rate',
+        'EURJPY Curncy': 'Euro/Japanese Yen Exchange Rate',
+        'EURCHF Index': 'Euro/Swiss Franc Exchange Rate',
+        'XBTUSD Curncy': 'Bitcoin/US Dollar Exchange Rate',
+        'XAU Curncy': 'Gold',
+        'ERA Comdty': 'Euribor 3Mo',
+        'FRANCE CDS USD SR 10Y D14 Corp': '10Y French CDS',
+        'UK CDS USD SR 10Y D14 Corp': '10Y UK CDS',
+        'SPAIN CDS USD SR 10Y D14 Corp': '10Y Spanish CDS',
+        'ITALY CDS USD SR 10Y D14 Corp': '10Y Italian CDS',
+        'GERMAN CDS USD SR 10Y D14 Corp': '10 German CDS',
+        'GTDEM10Y Govt': 'Generic 10Y German Bond',
+        'CTDEM10Y Govt': 'Current 10Y Gov Bond',
+        'GDP CURY Index': 'USD GDP Norminal Dollars YoY',
+        'CTFRF10Y Govt': 'Current 10Y France Gov Bond',
+        'CTDEM10Y Govt': 'Current 10Y German Gov Bond',
+        'CTITL10Y Govt': 'Current 10Y Italian Gov Bond',
+        'CTEUR10Y Govt': 'Current 10Y Eurozone Gov Bond',
+        'GUKG30 Index': 'Current 10Y UK Gov Bond',
+        'CTEUR7Y Govt': 'Current 7Y Eurozone Gov Bond',
+        'JPEI3MEU Index': 'JPM ESG Global HY Corporate Custom Maturity Index Unhedged in EUR',
+        'LF98TRUU Index': 'The Bloomberg US Corporate High Yield Bond Index measures the USD-denominated, high yield, fixed-rate corporate bond market. Securities are classified as high yield if the middle rating of Moody\'s, Fitch and S&P is Ba1/BB+/BB+ or below.',
+        'IBXXCHF3 Index': 'Markit iBoxx USD Liquid Investment Grade CHF Unhedged TRI',
+        'CLA Comdty': 'Crude Oil Active Contract',
+        'ASDA Index': 'S&P500 Active Dividend Future',
+        'DEDA Index': 'Active Dividend Dividendes cash bruts ordinaires annoncés et payés ppour chacun',
+        'VIX Index': 'VIX Index',
+        'VDAX Index': 'VDAX Index',
+        'VCAC Index': 'CAC 40 Volatility Index',
+        'Move Index': 'The MOVE Index measures U.S. bond market volatility by tracking a basket of OTC options on U.S. interest rate swaps. The Index tracks implied normal yield volatility of a yield curve weighted basket of at-the-money one month options on the 2-year, 5-year, 10-year, and 30-year constant maturity interest rate swaps.',
+        'V2X Index': 'Euro Stoxx 50 Volatility Index VSTOXX',
+        'BCOM Index': 'Bloomberg Commodity Index (BCOM) est calculé sur une base de rendement excédentaire et reflète les variations de prix des contrats à terme sur matières premières. L\'indice est rééquilibré chaque année selon la pondération (2/3 le volume de négociation et 1/3 capitalisation boursière mondiale)',
+        'VG1 Index': 'Euro Stoxx 50',
+        'ITRX EUR CDSI GEN 5Y Corp': 'The Markit iTraxx Europe index comprises 125 equally weighted credit default swaps on investment grade European corporate entities, distributed among 4 sub-indices: Financials (Senior & Subordinated), Non-Financials and HiVol.',
+        'ITRX XOVER CDSI GEN 5Y Corp': 'The Markit iTraxx Europe Crossover index comprises 75 equally weighted credit default swaps on the most liquid sub-investment grade European corporate entities.',
+        'ITRX JAPAN CDSI GEN 5Y Corp': 'The Markit iTraxx Japan index comprises 40 equally-weighted CDS on investment grade Japanese entities.',
+        'ITRX EXJP IG CDSI GEN 5Y Corp': 'The Markit iTraxx Asia ex-Japan Investment Grade index comprises 40 equally-weighted investment grade CDS index of Asian entities.',
+        'HGK5 Index': 'Copper Future',
+        'SIK5 Index': 'Silver Future',
+        'XPT BGN Curncy': 'The per Troy ounce spot price for Platinum, in plate or ingot form, with a minimum purity of 99.95%.',
+        'ITRX EXJP IG CDSI S42 5Y Corp': 'The Markit iTraxx Asia ex-Japan Investment Grade index comprises 40 equally-weighted investment grade CDS index of Asian entities.',
+        'USYC2Y10 Index': 'Selling 2Y and buying 10Y US Treasury',
+        'CDX IG CDSI GEN 5Y Corp': 'The Markit CDX North America Investment Grade Index is composed of 125 equally weighted credit default swaps on investment grade entities, distributed among 6 sub-indices: High Volatility,Consumer, Energy, Financial, Industrial, and Technology, Media & Tele-communications.',
+        'CDX HY CDSI GEN 5Y Corp': 'Markit CDX North America High Yield Index is composed of 100 non-investment grade entities, distributed among 2 sub-indices: B, BB. All entities are domiciled in North America.'
+    }
+
 def categorize_assets(asset_columns, descriptions):
     """Categorize assets by type for better organization"""
     categories = {
-        "Equities & Indices": [],
-        "Currencies": [],
+        "Pergam Funds": [],
+        "US Treasury Rates": [],
+        "Government Bonds": [],
+        "Equity Indices": [],
+        "Currencies (FX)": [],
         "Commodities": [],
-        "Bonds & Rates": [],
-        "Credit (CDS)": [],
-        "Volatility": [],
+        "Credit Default Swaps (CDS)": [],
+        "Volatility Indices": [],
+        "Corporate Bonds": [],
         "Other": []
     }
     
+    # Get hardcoded descriptions as fallback
+    hardcoded_descriptions = get_hardcoded_descriptions()
+    all_descriptions = {**hardcoded_descriptions, **descriptions}  # descriptions override hardcoded
+    
     for asset in asset_columns:
         asset_lower = asset.lower()
-        desc = descriptions.get(asset, "").lower()
+        desc = all_descriptions.get(asset, "").lower()
         
-        if any(x in asset_lower for x in ['index', 'spx', 'eses', 'deda', 'asda', 'vg1', 'wlsnre', 'spw']):
-            categories["Equities & Indices"].append(asset)
-        elif any(x in asset_lower for x in ['curncy', 'eur', 'usd', 'jpy', 'chf', 'gbp', 'aud', 'nzd']):
-            categories["Currencies"].append(asset)
-        elif any(x in asset_lower for x in ['comdty', 'xau', 'xpt', 'si1', 'era', 'oata', 'cla', 'hg']):
+        # Pergam Funds
+        if 'perglfi' in asset_lower or 'pergam' in desc:
+            categories["Pergam Funds"].append(asset)
+        
+        # US Treasury Rates
+        elif any(x in asset_lower for x in ['h15t', 'usyc']):
+            categories["US Treasury Rates"].append(asset)
+        
+        # Government Bonds
+        elif any(x in asset_lower for x in ['govt', 'ctdem', 'ctfrf', 'ctitl', 'cteur', 'gtdem', 'gukg', 'gdp cury']):
+            categories["Government Bonds"].append(asset)
+        
+        # Equity Indices & Futures
+        elif any(x in asset_lower for x in ['eses', 'vga', 'asda', 'deda', 'vg1', 'index']) and not any(x in asset_lower for x in ['vix', 'vdax', 'vcac', 'move', 'v2x']):
+            categories["Equity Indices"].append(asset)
+        
+        # Currencies (FX)
+        elif any(x in asset_lower for x in ['curncy', 'eurusd', 'nzdusd', 'audusd', 'eurgbp', 'chfusd', 'chfeur', 'usdjpy', 'eurjpy', 'eurchf', 'xbtusd']):
+            categories["Currencies (FX)"].append(asset)
+        
+        # Commodities
+        elif any(x in asset_lower for x in ['comdty', 'xau', 'xpt', 'era', 'oata', 'cla', 'hgk5', 'sik5', 'bcom']):
             categories["Commodities"].append(asset)
-        elif any(x in asset_lower for x in ['govt', 'h15t', 'usyc', 'ct', 'gt', 'guk']):
-            categories["Bonds & Rates"].append(asset)
-        elif any(x in asset_lower for x in ['cds', 'cdx', 'itrx']):
-            categories["Credit (CDS)"].append(asset)
-        elif any(x in asset_lower for x in ['vix', 'vdax', 'v2x', 'v1x', 'move']):
-            categories["Volatility"].append(asset)
+        
+        # Credit Default Swaps (CDS)
+        elif any(x in asset_lower for x in ['cds', 'cdx', 'itrx']) or 'cds' in desc:
+            categories["Credit Default Swaps (CDS)"].append(asset)
+        
+        # Volatility Indices
+        elif any(x in asset_lower for x in ['vix', 'vdax', 'vcac', 'move', 'v2x']):
+            categories["Volatility Indices"].append(asset)
+        
+        # Corporate Bonds
+        elif any(x in asset_lower for x in ['jpei3meu', 'lf98truu', 'ibxxchf3']) or 'corporate' in desc or 'bond' in desc:
+            categories["Corporate Bonds"].append(asset)
+        
         else:
             categories["Other"].append(asset)
     
@@ -940,13 +1031,19 @@ def main():
         # Try to find description for selected asset
         asset_description = None
         
+        # Get hardcoded descriptions as fallback
+        hardcoded_descriptions = get_hardcoded_descriptions()
+        
+        # Combine loaded descriptions with hardcoded fallback
+        all_descriptions = {**hardcoded_descriptions, **descriptions}  # descriptions override hardcoded
+        
         # Direct match first
-        if selected_asset in descriptions and descriptions[selected_asset] and not pd.isna(descriptions[selected_asset]):
-            asset_description = descriptions[selected_asset]
+        if selected_asset in all_descriptions and all_descriptions[selected_asset] and not pd.isna(all_descriptions[selected_asset]):
+            asset_description = all_descriptions[selected_asset]
         else:
             # Try partial matching for common patterns
             selected_lower = selected_asset.lower()
-            for ticker, desc in descriptions.items():
+            for ticker, desc in all_descriptions.items():
                 if ticker and desc:
                     # Check if the asset name contains the ticker or vice versa
                     if (selected_lower in ticker.lower() or 
@@ -1015,16 +1112,12 @@ def main():
     
     # Benchmark Selection
     st.sidebar.subheader("📈 Benchmark Configuration")
-    benchmark_type = st.sidebar.selectbox("Benchmark Type", ["Fixed Yield", "Money Market Fund", "Other Index"])
+    benchmark_type = st.sidebar.selectbox("Benchmark Type", ["Fixed Yield", "Other Index"])
     
     benchmark_data = None
     if benchmark_type == "Fixed Yield":
         fixed_yield = st.sidebar.number_input("Annual Yield (%)", min_value=0.0, max_value=20.0, value=3.0, step=0.1)
         benchmark_value = fixed_yield
-    elif benchmark_type == "Money Market Fund":
-        benchmark_asset = st.sidebar.selectbox("Select Money Market Fund", asset_columns)
-        benchmark_data = filtered_data[benchmark_asset].dropna()
-        benchmark_value = None
     else:  # Other Index
         benchmark_asset = st.sidebar.selectbox("Select Benchmark Index", asset_columns)
         benchmark_data = filtered_data[benchmark_asset].dropna()
@@ -1035,6 +1128,10 @@ def main():
     include_lump_sum = st.sidebar.checkbox("Compare with Lump Sum Investment", value=True)
     calculate_var = st.sidebar.checkbox("Calculate Value at Risk (VaR)", value=True)
     var_confidence = st.sidebar.slider("VaR Confidence Level", 0.01, 0.10, 0.05, 0.01) if calculate_var else 0.05
+    
+    # Rolling window for relative analysis
+    st.sidebar.subheader("📈 Relative Analysis Settings")
+    rolling_window = st.sidebar.selectbox("Rolling Window (Months)", [3, 6, 12, 24], index=2, key="rolling_window_sidebar")
     
     # Run Analysis Button
     if st.sidebar.button("🚀 Run Analysis", type="primary"):
@@ -1215,15 +1312,10 @@ def main():
             
             # Rolling relative performance
             st.subheader("📈 Rolling Relative Performance Trends")
+            st.markdown(f"**Current Rolling Window: {rolling_window} months** (Change in sidebar)")
             
-            # Window selection
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                rolling_window = st.selectbox("Rolling Window (Months)", [3, 6, 12, 24], index=2)
-            
-            with col2:
-                rolling_fig = create_rolling_relative_performance_chart(dca_simulator, lump_sum_results, rolling_window)
-                st.plotly_chart(rolling_fig, use_container_width=True)
+            rolling_fig = create_rolling_relative_performance_chart(dca_simulator, lump_sum_results, rolling_window)
+            st.plotly_chart(rolling_fig, use_container_width=True)
             
             # Annual performance summary
             st.subheader("📋 Annual Relative Performance Summary")
