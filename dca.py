@@ -97,8 +97,11 @@ class DCASimulator:
             # Weekly investments - find all Mondays in the data
             investment_dates = self.asset_prices.index[self.asset_prices.index.weekday == 0]
         elif self.frequency == 'M':
-            # Monthly investments - since your data is monthly, invest on all dates
-            investment_dates = self.asset_prices.index
+            # Monthly investments - take first date of each month
+            # Group by year-month and take the first date of each group
+            grouped = self.asset_prices.groupby([self.asset_prices.index.year, self.asset_prices.index.month])
+            investment_dates = [group.index[0] for name, group in grouped]
+            investment_dates = pd.DatetimeIndex(investment_dates).sort_values()
         elif self.frequency == 'Y':
             # Yearly investments - take first date of each year
             investment_dates = self.asset_prices.index[self.asset_prices.index.year.duplicated() == False]
@@ -233,6 +236,72 @@ class DCASimulator:
         }
         
         return summary
+    
+    def calculate_relative_performance(self, lump_sum_results=None):
+        """Calculate relative performance metrics for heatmap analysis"""
+        if self.simulation_results is None:
+            raise ValueError("Run simulate() first")
+        
+        df = self.simulation_results.copy()
+        
+        # Calculate monthly returns for DCA
+        df['dca_monthly_return'] = df['portfolio_value_index'].pct_change()
+        df['benchmark_monthly_return'] = df['benchmark_index'].pct_change()
+        
+        # Calculate relative performance vs benchmark
+        df['relative_vs_benchmark'] = df['dca_monthly_return'] - df['benchmark_monthly_return']
+        
+        # Add date components for heatmap
+        df['year'] = df.index.year
+        df['month'] = df.index.month
+        
+        # If lump sum results provided, calculate relative performance vs lump sum
+        if lump_sum_results is not None:
+            lump_sum_monthly_return = lump_sum_results['portfolio_value_index'].pct_change()
+            df['lump_sum_monthly_return'] = lump_sum_monthly_return.reindex(df.index)
+            df['relative_vs_lumpsum'] = df['dca_monthly_return'] - df['lump_sum_monthly_return']
+        
+        return df
+    
+    def get_monthly_relative_performance_matrix(self, lump_sum_results=None):
+        """Get monthly relative performance data formatted for heatmap"""
+        rel_perf = self.calculate_relative_performance(lump_sum_results)
+        
+        # Create matrices for heatmaps
+        years = sorted(rel_perf['year'].unique())
+        months = list(range(1, 13))
+        
+        # Relative vs benchmark matrix
+        benchmark_matrix = np.full((len(years), 12), np.nan)
+        for i, year in enumerate(years):
+            year_data = rel_perf[rel_perf['year'] == year]
+            for idx, row in year_data.iterrows():
+                month_idx = int(row['month']) - 1
+                if month_idx >= 0 and month_idx < 12:  # Ensure valid month index
+                    rel_benchmark_val = row['relative_vs_benchmark']
+                    if not pd.isna(rel_benchmark_val):
+                        benchmark_matrix[i, month_idx] = float(rel_benchmark_val) * 100  # Convert to percentage
+        
+        result = {
+            'years': years,
+            'months': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            'benchmark_matrix': benchmark_matrix
+        }
+        
+        # Relative vs lump sum matrix (if available)
+        if lump_sum_results is not None:
+            lumpsum_matrix = np.full((len(years), 12), np.nan)
+            for i, year in enumerate(years):
+                year_data = rel_perf[rel_perf['year'] == year]
+                for idx, row in year_data.iterrows():
+                    month_idx = int(row['month']) - 1
+                    if month_idx >= 0 and month_idx < 12:  # Ensure valid month index
+                        if 'relative_vs_lumpsum' in row and not pd.isna(row['relative_vs_lumpsum']):
+                            lumpsum_matrix[i, month_idx] = float(row['relative_vs_lumpsum']) * 100
+            result['lumpsum_matrix'] = lumpsum_matrix
+        
+        return result
     
     def plot_results(self, figsize=(15, 10)):
         """Create comprehensive visualization of results"""

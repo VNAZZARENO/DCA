@@ -329,17 +329,274 @@ def categorize_assets(asset_columns, descriptions):
     # Remove empty categories
     return {k: v for k, v in categories.items() if v}
 
+def create_relative_performance_heatmaps(dca_simulator, lump_sum_results=None):
+    """Create heatmap visualizations for relative performance analysis"""
+    
+    # Get monthly relative performance data
+    heatmap_data = dca_simulator.get_monthly_relative_performance_matrix(lump_sum_results)
+    
+    years = heatmap_data['years']
+    months = heatmap_data['months']
+    
+    # Create subplots
+    if lump_sum_results is not None:
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('DCA vs Benchmark - Monthly Relative Performance (%)', 
+                          'DCA vs Lump Sum - Monthly Relative Performance (%)'),
+            vertical_spacing=0.15
+        )
+        
+        # DCA vs Benchmark heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=heatmap_data['benchmark_matrix'],
+                x=months,
+                y=[str(year) for year in years],
+                colorscale='RdYlGn',
+                zmid=0,
+                colorbar=dict(title="Relative Return (%)", x=1.02, len=0.4, y=0.75),
+                hoverongaps=False,
+                hovertemplate='Year: %{y}<br>Month: %{x}<br>Relative Performance: %{z:.2f}%<extra></extra>',
+                showscale=True
+            ),
+            row=1, col=1
+        )
+        
+        # DCA vs Lump Sum heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=heatmap_data['lumpsum_matrix'],
+                x=months,
+                y=[str(year) for year in years],
+                colorscale='RdYlGn',
+                zmid=0,
+                colorbar=dict(title="Relative Return (%)", x=1.02, len=0.4, y=0.25),
+                hoverongaps=False,
+                hovertemplate='Year: %{y}<br>Month: %{x}<br>Relative Performance: %{z:.2f}%<extra></extra>',
+                showscale=True
+            ),
+            row=2, col=1
+        )
+        
+        fig.update_layout(
+            height=800,
+            title_text="Monthly Relative Performance Analysis",
+            title_x=0.5
+        )
+    else:
+        # Only benchmark comparison
+        fig = go.Figure(data=go.Heatmap(
+            z=heatmap_data['benchmark_matrix'],
+            x=months,
+            y=[str(year) for year in years],
+            colorscale='RdYlGn',
+            zmid=0,
+            colorbar=dict(title="Relative Return (%)"),
+            hoverongaps=False,
+            hovertemplate='Year: %{y}<br>Month: %{x}<br>Relative Performance: %{z:.2f}%<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title='DCA vs Benchmark - Monthly Relative Performance (%)',
+            height=600,
+            title_x=0.5
+        )
+    
+    # Update axes
+    fig.update_xaxes(title_text="Month", side="bottom")
+    fig.update_yaxes(title_text="Year")
+    
+    return fig
+
+def create_rolling_relative_performance_chart(dca_simulator, lump_sum_results=None, window=12):
+    """Create rolling relative performance chart"""
+    
+    rel_perf_data = dca_simulator.calculate_relative_performance(lump_sum_results)
+    
+    # Calculate rolling relative performance
+    rel_perf_data['rolling_rel_benchmark'] = rel_perf_data['relative_vs_benchmark'].rolling(window=window).mean() * 100
+    
+    fig = go.Figure()
+    
+    # Add benchmark comparison
+    fig.add_trace(go.Scatter(
+        x=rel_perf_data.index,
+        y=rel_perf_data['rolling_rel_benchmark'],
+        mode='lines',
+        name=f'{window}-Month Rolling Relative Performance vs Benchmark',
+        line=dict(color='blue', width=2)
+    ))
+    
+    # Add lump sum comparison if available
+    if lump_sum_results is not None and 'relative_vs_lumpsum' in rel_perf_data.columns:
+        rel_perf_data['rolling_rel_lumpsum'] = rel_perf_data['relative_vs_lumpsum'].rolling(window=window).mean() * 100
+        fig.add_trace(go.Scatter(
+            x=rel_perf_data.index,
+            y=rel_perf_data['rolling_rel_lumpsum'],
+            mode='lines',
+            name=f'{window}-Month Rolling Relative Performance vs Lump Sum',
+            line=dict(color='orange', width=2)
+        ))
+    
+    # Add zero line
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.7)
+    
+    fig.update_layout(
+        title=f'{window}-Month Rolling Relative Performance Analysis',
+        xaxis_title='Date',
+        yaxis_title='Relative Performance (%)',
+        height=500,
+        showlegend=True
+    )
+    
+    return fig
+
+def create_annual_relative_performance_summary(dca_simulator, lump_sum_results=None):
+    """Create annual relative performance summary table and chart"""
+    
+    rel_perf_data = dca_simulator.calculate_relative_performance(lump_sum_results)
+    
+    # Group by year and calculate annual relative performance
+    annual_stats = rel_perf_data.groupby('year').agg({
+        'relative_vs_benchmark': ['mean', 'std', 'min', 'max'],
+        'dca_monthly_return': ['mean', 'std'],
+        'benchmark_monthly_return': ['mean', 'std']
+    }).round(4) * 100  # Convert to percentage
+    
+    # Flatten column names
+    annual_stats.columns = ['_'.join(col).strip() for col in annual_stats.columns]
+    annual_stats.columns = [
+        'Rel_Benchmark_Mean', 'Rel_Benchmark_Std', 'Rel_Benchmark_Min', 'Rel_Benchmark_Max',
+        'DCA_Return_Mean', 'DCA_Return_Std', 'Benchmark_Return_Mean', 'Benchmark_Return_Std'
+    ]
+    
+    # Add lump sum comparison if available
+    if lump_sum_results is not None and 'relative_vs_lumpsum' in rel_perf_data.columns:
+        lumpsum_stats = rel_perf_data.groupby('year').agg({
+            'relative_vs_lumpsum': ['mean', 'std', 'min', 'max']
+        }).round(4) * 100
+        
+        lumpsum_stats.columns = [
+            'Rel_LumpSum_Mean', 'Rel_LumpSum_Std', 'Rel_LumpSum_Min', 'Rel_LumpSum_Max'
+        ]
+        
+        annual_stats = pd.concat([annual_stats, lumpsum_stats], axis=1)
+    
+    return annual_stats
+
+def create_performance_distribution_chart(dca_simulator, lump_sum_results=None):
+    """Create distribution chart of monthly relative performance"""
+    
+    rel_perf_data = dca_simulator.calculate_relative_performance(lump_sum_results)
+    
+    fig = make_subplots(
+        rows=1, cols=2 if lump_sum_results is not None else 1,
+        subplot_titles=['DCA vs Benchmark Distribution', 'DCA vs Lump Sum Distribution'] if lump_sum_results is not None else ['DCA vs Benchmark Distribution']
+    )
+    
+    # Benchmark distribution
+    benchmark_rel = rel_perf_data['relative_vs_benchmark'].dropna() * 100
+    fig.add_trace(
+        go.Histogram(
+            x=benchmark_rel,
+            nbinsx=30,
+            name='Relative Performance vs Benchmark',
+            opacity=0.7,
+            marker_color='blue'
+        ),
+        row=1, col=1
+    )
+    
+    # Add vertical line at zero
+    fig.add_vline(x=0, line_dash="dash", line_color="red", row=1, col=1)
+    
+    # Lump sum distribution if available
+    if lump_sum_results is not None and 'relative_vs_lumpsum' in rel_perf_data.columns:
+        lumpsum_rel = rel_perf_data['relative_vs_lumpsum'].dropna() * 100
+        fig.add_trace(
+            go.Histogram(
+                x=lumpsum_rel,
+                nbinsx=30,
+                name='Relative Performance vs Lump Sum',
+                opacity=0.7,
+                marker_color='orange'
+            ),
+            row=1, col=2
+        )
+        fig.add_vline(x=0, line_dash="dash", line_color="red", row=1, col=2)
+    
+    fig.update_layout(
+        title='Monthly Relative Performance Distribution',
+        showlegend=False,
+        height=400
+    )
+    
+    fig.update_xaxes(title_text="Relative Performance (%)")
+    fig.update_yaxes(title_text="Frequency")
+    
+    return fig
+
+def create_win_loss_analysis(dca_simulator, lump_sum_results=None):
+    """Create win/loss analysis visualization"""
+    
+    rel_perf_data = dca_simulator.calculate_relative_performance(lump_sum_results)
+    
+    # Benchmark analysis
+    benchmark_wins = (rel_perf_data['relative_vs_benchmark'] > 0).sum()
+    benchmark_losses = (rel_perf_data['relative_vs_benchmark'] <= 0).sum()
+    total_periods = len(rel_perf_data['relative_vs_benchmark'].dropna())
+    
+    data = {
+        'Strategy': ['DCA vs Benchmark'],
+        'Win Rate (%)': [benchmark_wins / total_periods * 100],
+        'Wins': [benchmark_wins],
+        'Losses': [benchmark_losses],
+        'Avg Win (%)': [rel_perf_data[rel_perf_data['relative_vs_benchmark'] > 0]['relative_vs_benchmark'].mean() * 100],
+        'Avg Loss (%)': [rel_perf_data[rel_perf_data['relative_vs_benchmark'] <= 0]['relative_vs_benchmark'].mean() * 100]
+    }
+    
+    # Add lump sum analysis if available
+    if lump_sum_results is not None and 'relative_vs_lumpsum' in rel_perf_data.columns:
+        lumpsum_wins = (rel_perf_data['relative_vs_lumpsum'] > 0).sum()
+        lumpsum_losses = (rel_perf_data['relative_vs_lumpsum'] <= 0).sum()
+        
+        data['Strategy'].append('DCA vs Lump Sum')
+        data['Win Rate (%)'].append(lumpsum_wins / total_periods * 100)
+        data['Wins'].append(lumpsum_wins)
+        data['Losses'].append(lumpsum_losses)
+        data['Avg Win (%)'].append(rel_perf_data[rel_perf_data['relative_vs_lumpsum'] > 0]['relative_vs_lumpsum'].mean() * 100)
+        data['Avg Loss (%)'].append(rel_perf_data[rel_perf_data['relative_vs_lumpsum'] <= 0]['relative_vs_lumpsum'].mean() * 100)
+    
+    return pd.DataFrame(data)
+
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">💰 DCA Investment Simulator</h1>', unsafe_allow_html=True)
+    # Header with logo
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Try to load the main logo with company name
+        try:
+            main_logo_path = "Logo-Pergam-noir-fond-blanc.png"
+            st.image(main_logo_path, width=400)
+        except:
+            # Fallback if logo not found
+            st.markdown('<h1 class="main-header">💰 DCA Investment Simulator</h1>', unsafe_allow_html=True)
+    
     st.markdown("### Professional Dollar Cost Averaging Analysis Tool")
     
-    # Sidebar
+    # Sidebar with small logo
+    try:
+        small_logo_path = "pergam_finance_logo.jpg"
+        st.sidebar.image(small_logo_path, width=150)
+    except:
+        pass  # Continue without logo if not found
+    
     st.sidebar.markdown('<h2 class="sidebar-header">📊 Configuration</h2>', unsafe_allow_html=True)
     
     # Data Source Selection
     st.sidebar.subheader("📁 Data Source")
-    data_source = st.sidebar.selectbox("Data Source", ["Default Risk Proxies", "Upload Custom File"])
+    data_source = st.sidebar.selectbox("Data Source", ["Default Risk Proxies", "Upload Custom File", "File Path Input"])
     
     data = None
     descriptions = {}
@@ -352,7 +609,138 @@ def main():
             st.sidebar.markdown("**Fallback to file upload:**")
             data_source = "Upload Custom File"
     
-    if data_source == "Upload Custom File" or data is None:
+    if data_source == "File Path Input":
+        # File path input option
+        st.sidebar.subheader("📂 File Path Configuration")
+        
+        # Main data file path
+        file_path = st.sidebar.text_input(
+            "Data File Path", 
+            placeholder=r"C:\path\to\your\data.csv",
+            help="Enter the full path to your data file"
+        )
+        
+        # Optional description file path
+        desc_file_path = st.sidebar.text_input(
+            "Description File Path (Optional)", 
+            placeholder=r"C:\path\to\your\descriptions.csv",
+            help="Optional: Enter path to description file"
+        )
+        
+        # File type selection
+        file_type = st.sidebar.selectbox("File Type", ["CSV", "Excel"])
+        
+        # CSV specific parameters
+        csv_params = {}
+        if file_type == "CSV":
+            st.sidebar.markdown("**CSV Parameters:**")
+            csv_params['sep'] = st.sidebar.selectbox("Separator", [';', ',', '\\t', '|'], index=0)
+            csv_params['decimal'] = st.sidebar.selectbox("Decimal separator", ['.', ','], index=0)
+            
+            # Date format options
+            date_format_options = [
+                'Auto',
+                '%Y-%m-%d',      # 2023-12-31
+                '%d/%m/%Y',      # 31/12/2023
+                '%m/%d/%Y',      # 12/31/2023
+                '%d-%m-%Y',      # 31-12-2023
+                '%d.%m.%Y',      # 31.12.2023
+                '%Y%m%d',        # 20231231
+                'Custom'
+            ]
+            csv_params['date_format'] = st.sidebar.selectbox("Date Format", date_format_options)
+            
+            if csv_params['date_format'] == 'Custom':
+                csv_params['date_format'] = st.sidebar.text_input(
+                    "Custom Date Format", 
+                    placeholder="e.g., %d/%m/%Y %H:%M:%S",
+                    help="Use Python strftime format codes"
+                )
+        
+        if not file_path:
+            st.info("Please enter a file path to load data.")
+            st.markdown("""
+            ### Expected File Format:
+            - **Dates column**: Must be named 'Dates' with date values
+            - **Asset columns**: Each column represents a different asset/index
+            
+            ### Example paths:
+            - Windows: `C:\\data\\my_data.csv`
+            - Unix/Mac: `/home/user/data/my_data.csv`
+            """)
+            return
+        
+        # Try to load data from file path
+        try:
+            import os
+            if not os.path.exists(file_path):
+                st.error(f"❌ File not found: {file_path}")
+                return
+            
+            if file_type == "Excel":
+                data = pd.read_excel(file_path)
+            else:  # CSV
+                data = pd.read_csv(
+                    file_path, 
+                    sep=csv_params['sep'], 
+                    decimal=csv_params['decimal']
+                )
+            
+            if 'Dates' not in data.columns:
+                st.error("File must contain a 'Dates' column")
+                return
+            
+            # Handle date parsing
+            try:
+                if csv_params.get('date_format') and csv_params['date_format'] != 'Auto':
+                    data['Dates'] = pd.to_datetime(data['Dates'], format=csv_params['date_format'])
+                else:
+                    data['Dates'] = pd.to_datetime(data['Dates'], infer_datetime_format=True, dayfirst=True)
+            except:
+                try:
+                    data['Dates'] = pd.to_datetime(data['Dates'])
+                except:
+                    st.error("Could not parse dates. Please check your date format.")
+                    return
+            
+            data.set_index('Dates', inplace=True)
+            
+            # Convert all columns to numeric
+            for col in data.columns:
+                data[col] = pd.to_numeric(data[col], errors='coerce')
+            
+            st.sidebar.success(f"✅ Loaded data from: {file_path}")
+            st.sidebar.info(f"📊 Shape: {data.shape[0]} rows × {data.shape[1]} columns")
+            
+            # Load descriptions from file path if provided
+            if desc_file_path and os.path.exists(desc_file_path):
+                try:
+                    desc_df = pd.read_csv(desc_file_path, sep=';')
+                    
+                    if 'Ticker' in desc_df.columns and 'Description' in desc_df.columns:
+                        descriptions = {k: v for k, v in dict(zip(desc_df['Ticker'], desc_df['Description'])).items() 
+                                      if pd.notna(k) and pd.notna(v) and str(k).strip() and str(v).strip()}
+                    else:
+                        # Transposed format
+                        desc_df_transposed = desc_df.T
+                        if len(desc_df_transposed) >= 2:
+                            tickers = desc_df_transposed.iloc[0].values
+                            descriptions_list = desc_df_transposed.iloc[1].values
+                            descriptions = {}
+                            for ticker, desc in zip(tickers, descriptions_list):
+                                if pd.notna(ticker) and pd.notna(desc) and str(ticker).strip() and str(desc).strip():
+                                    descriptions[str(ticker).strip()] = str(desc).strip()
+                    
+                    st.sidebar.success(f"✅ Loaded {len(descriptions)} descriptions")
+                except Exception as e:
+                    st.sidebar.error(f"❌ Error loading descriptions: {str(e)}")
+                    descriptions = {}
+            
+        except Exception as e:
+            st.error(f"❌ Error loading file: {str(e)}")
+            return
+    
+    elif data_source == "Upload Custom File" or data is None:
         # File type selection
         file_type = st.sidebar.selectbox("File Type", ["Excel", "CSV"])
         
@@ -622,6 +1010,7 @@ def main():
     st.sidebar.subheader("💵 Investment Parameters")
     investment_amount = st.sidebar.number_input("Investment Amount per Period", min_value=1, value=1000, step=100)
     frequency = st.sidebar.selectbox("Investment Frequency", ['D', 'W', 'M', 'Y'], 
+                                   index=2,  # Default to Monthly (index 2)
                                    format_func=lambda x: {'D': 'Daily', 'W': 'Weekly', 'M': 'Monthly', 'Y': 'Yearly'}[x])
     
     # Benchmark Selection
@@ -690,7 +1079,7 @@ def main():
         st.success("✅ Analysis completed successfully!")
         
         # Create tabs for different views
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance Overview", "📈 Detailed Charts", "📋 Risk Analysis", "📑 Data Export"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Performance Overview", "📈 Detailed Charts", "🔥 Relative Analysis", "📋 Risk Analysis", "📑 Data Export"])
         
         with tab1:
             # Performance Overview
@@ -816,6 +1205,123 @@ def main():
             st.plotly_chart(fig_cumulative, use_container_width=True)
         
         with tab3:
+            # Relative Analysis
+            st.subheader("🔥 Monthly Relative Performance Analysis")
+            st.markdown("**Green indicates DCA outperformed, Red indicates DCA underperformed**")
+            
+            # Create and display heatmaps
+            heatmap_fig = create_relative_performance_heatmaps(dca_simulator, lump_sum_results)
+            st.plotly_chart(heatmap_fig, use_container_width=True)
+            
+            # Rolling relative performance
+            st.subheader("📈 Rolling Relative Performance Trends")
+            
+            # Window selection
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                rolling_window = st.selectbox("Rolling Window (Months)", [3, 6, 12, 24], index=2)
+            
+            with col2:
+                rolling_fig = create_rolling_relative_performance_chart(dca_simulator, lump_sum_results, rolling_window)
+                st.plotly_chart(rolling_fig, use_container_width=True)
+            
+            # Annual performance summary
+            st.subheader("📋 Annual Relative Performance Summary")
+            annual_summary = create_annual_relative_performance_summary(dca_simulator, lump_sum_results)
+            
+            # Format column names for better display
+            display_columns = {
+                'Rel_Benchmark_Mean': 'Avg Rel vs Benchmark (%)',
+                'Rel_Benchmark_Std': 'Volatility vs Benchmark (%)',
+                'Rel_Benchmark_Min': 'Min Rel vs Benchmark (%)',
+                'Rel_Benchmark_Max': 'Max Rel vs Benchmark (%)',
+                'DCA_Return_Mean': 'Avg DCA Return (%)',
+                'DCA_Return_Std': 'DCA Volatility (%)',
+                'Benchmark_Return_Mean': 'Avg Benchmark Return (%)',
+                'Benchmark_Return_Std': 'Benchmark Volatility (%)'
+            }
+            
+            if include_lump_sum and lump_sum_results is not None:
+                display_columns.update({
+                    'Rel_LumpSum_Mean': 'Avg Rel vs Lump Sum (%)',
+                    'Rel_LumpSum_Std': 'Volatility vs Lump Sum (%)',
+                    'Rel_LumpSum_Min': 'Min Rel vs Lump Sum (%)',
+                    'Rel_LumpSum_Max': 'Max Rel vs Lump Sum (%)'
+                })
+            
+            # Select and rename columns for display
+            display_df = annual_summary[[col for col in display_columns.keys() if col in annual_summary.columns]].copy()
+            display_df.columns = [display_columns[col] for col in display_df.columns]
+            
+            st.dataframe(display_df, use_container_width=True)
+            
+            # Performance insights
+            st.subheader("💡 Key Insights")
+            
+            # Calculate overall statistics
+            rel_perf_data = dca_simulator.calculate_relative_performance(lump_sum_results)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                avg_rel_benchmark = rel_perf_data['relative_vs_benchmark'].mean() * 100
+                positive_months_benchmark = (rel_perf_data['relative_vs_benchmark'] > 0).sum()
+                total_months = len(rel_perf_data['relative_vs_benchmark'].dropna())
+                
+                st.metric("Avg Monthly Outperformance vs Benchmark", f"{avg_rel_benchmark:.2f}%")
+                st.metric("Months Outperforming Benchmark", f"{positive_months_benchmark}/{total_months}")
+            
+            with col2:
+                if include_lump_sum and 'relative_vs_lumpsum' in rel_perf_data.columns:
+                    avg_rel_lumpsum = rel_perf_data['relative_vs_lumpsum'].mean() * 100
+                    positive_months_lumpsum = (rel_perf_data['relative_vs_lumpsum'] > 0).sum()
+                    
+                    st.metric("Avg Monthly Outperformance vs Lump Sum", f"{avg_rel_lumpsum:.2f}%")
+                    st.metric("Months Outperforming Lump Sum", f"{positive_months_lumpsum}/{total_months}")
+            
+            with col3:
+                best_year = annual_summary['Rel_Benchmark_Mean'].idxmax()
+                worst_year = annual_summary['Rel_Benchmark_Mean'].idxmin()
+                
+                st.metric("Best Relative Year vs Benchmark", f"{best_year}")
+                st.metric(f"Performance in {best_year}", f"{annual_summary.loc[best_year, 'Rel_Benchmark_Mean']:.2f}%")
+            
+            # Distribution Analysis
+            st.subheader("📊 Performance Distribution Analysis")
+            distribution_fig = create_performance_distribution_chart(dca_simulator, lump_sum_results)
+            st.plotly_chart(distribution_fig, use_container_width=True)
+            
+            # Win/Loss Analysis
+            st.subheader("🎯 Win/Loss Analysis")
+            win_loss_df = create_win_loss_analysis(dca_simulator, lump_sum_results)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.dataframe(win_loss_df, use_container_width=True)
+            
+            with col2:
+                # Create win rate visualization
+                if len(win_loss_df) > 0:
+                    fig_winrate = go.Figure(data=[
+                        go.Bar(
+                            x=win_loss_df['Strategy'],
+                            y=win_loss_df['Win Rate (%)'],
+                            text=[f"{rate:.1f}%" for rate in win_loss_df['Win Rate (%)']],
+                            textposition='auto',
+                            marker_color=['blue', 'orange'] if len(win_loss_df) > 1 else ['blue']
+                        )
+                    ])
+                    
+                    fig_winrate.update_layout(
+                        title='Win Rate Comparison',
+                        yaxis_title='Win Rate (%)',
+                        height=400,
+                        showlegend=False
+                    )
+                    fig_winrate.add_hline(y=50, line_dash="dash", line_color="gray", opacity=0.7)
+                    st.plotly_chart(fig_winrate, use_container_width=True)
+        
+        with tab4:
             # Risk Analysis
             st.subheader("⚠️ Risk Analysis")
             
@@ -868,7 +1374,7 @@ def main():
                 )
                 st.plotly_chart(fig_risk_return, use_container_width=True)
         
-        with tab4:
+        with tab5:
             # Data Export
             st.subheader("📑 Export Results")
             
