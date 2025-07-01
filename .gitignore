@@ -1,0 +1,6 @@
+.venv/
+*.pyc
+app copy.py
+dca copy.py
+analysis.png
+Simulation DCA.xlsx
