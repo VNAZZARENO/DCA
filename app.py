@@ -135,8 +135,8 @@ class LumpSumSimulator:
 def load_default_data():
     """Load default risk proxies data"""
     try:
-        default_path = r"X:\Stagiaires\Vincent N\data\data\risk_proxies\all_risk_proxies.csv"
-        description_path = r"X:\Stagiaires\Vincent N\data\data\risk_proxies\data_description.csv"
+        default_path = r"all_risk_proxies.csv"
+        description_path = r"data_description.csv"
         
         # Try to load default data
         df = pd.read_csv(default_path, sep=';', decimal=',')
